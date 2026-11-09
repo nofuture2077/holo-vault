@@ -315,7 +315,7 @@ const params = new URLSearchParams(location.search);
 const SELLER = params.get("seller") || "2oalzw2t42a2g6chigqdqcknwa";
 const CATEGORY = params.get("category") || "pokemon-cards";
 // Bump the version when parsing changes, so stale cached data isn't shown.
-const CACHE_KEY = `vault:v2:${SELLER}:${CATEGORY}`;
+const CACHE_KEY = `vault:v3:${SELLER}:${CATEGORY}`;
 
 // PriceCharting says "Graded 9" without the company; grade-co-id carries it.
 const GRADERS = { 1: "PSA", 2: "BGS", 8: "CGC" };
@@ -325,6 +325,17 @@ function gradeLabel(o) {
   if (!m) return s || "Ungraded";             // already "PSA 10", "BGS 10", "Ungraded"…
   const co = GRADERS[o["grade-co-id"]] || (m[1] === "9.5" ? "BGS" : "");  // only BGS gives 9.5
   return co ? `${co} ${m[1]}` : `Grade ${m[1]}`;
+}
+// Public cert lookup pages, keyed by the company at the start of the grade label.
+const CERT_URLS = {
+  PSA: (n) => `https://www.psacard.com/cert/${n}`,
+  BGS: (n) => `https://www.beckett.com/grading/card-lookup?item_type=BGS&item_id=${n}`,
+  CGC: (n) => `https://www.cgccards.com/certlookup/${n}/`,
+};
+function certUrl(c) {
+  if (!c.cert) return "";
+  const make = CERT_URLS[c.grade.split(" ")[0]];
+  return make ? make(encodeURIComponent(c.cert)) : "";
 }
 const CACHE_MS = 10 * 60 * 1000;
 
@@ -484,6 +495,7 @@ function parseOffer(o) {
     condition: o["is-grade-item"] ? "" : (o["condition-string"] || ""),
     image: key ? key[1] : null,
     url: o["offer-url"] || "",
+    cert: String(o["cert-id"] || "").trim(),
   };
 }
 
@@ -658,6 +670,9 @@ function show(enter) {
     <div class="lb-val money">${fmt2(c.price)}</div>
     <dl class="facts">
       <dt>Grade</dt><dd>${esc(c.grade)}</dd>
+      ${c.cert ? `<dt>Cert</dt><dd>${certUrl(c)
+        ? `<a class="lb-link" href="${esc(certUrl(c))}" target="_blank" rel="noopener">${esc(c.cert)} on ${esc(c.grade.split(" ")[0])} ↗</a>`
+        : esc(c.cert)}</dd>` : ""}
       ${c.condition ? `<dt>Condition</dt><dd>${esc(c.condition)}</dd>` : ""}
       <dt>Rank</dt><dd>${c.rank} of ${cards.length} by value</dd>
       ${c.qty > 1 ? `<dt>Quantity</dt><dd>${c.qty} copies<span class="money"> · ${fmt2(c.price * c.qty)}</span></dd>` : ""}
