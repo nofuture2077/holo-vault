@@ -12,6 +12,7 @@
    from whichever card you hover. Holo foil is the one loud effect, and it lives on the cards only. */
 @property --a1 { syntax: "<color>"; inherits: true; initial-value: #2b2550; }
 @property --a2 { syntax: "<color>"; inherits: true; initial-value: #123a44; }
+@property --hue { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
 :root {
   color-scheme: dark;
   --bg: #0a0910;
@@ -28,7 +29,6 @@
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --card-w: 210px;
   --radius: 4.6% / 3.3%;
-  --foil: repeating-linear-gradient(115deg, #ff4fa3 0%, #ffd23f 6%, #4dffb5 12%, #3fc8ff 18%, #a46bff 24%, #ff4fa3 30%);
   transition: --a1 1.2s ease, --a2 1.2s ease;
 }
 * { box-sizing: border-box; }
@@ -94,8 +94,11 @@ h1 .v { display: block; -webkit-text-stroke: 1.5px var(--fg); color: transparent
 .fan .card .meta { display: none; }
 .fan .card:hover, .fan .card:focus-visible { transform: translateX(-50%) rotate(calc(var(--k) * 11deg)) translateY(-26px); z-index: 9; }
 .fan:hover .card:not(:hover) { transform: translateX(-50%) rotate(calc(var(--k) * 15deg)) translateY(calc(abs(var(--k)) * 18px)); }
-.fan .card[style*="--k: 0"] .foil { animation: sweep 5s ease-in-out infinite; opacity: .16; }
-@keyframes sweep { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.fan .card[style*="--k: 0"] .foil { animation: sweep 6s ease-in-out infinite; opacity: .3; }
+@keyframes sweep {
+  0%, 100% { -webkit-mask-position: 0% 30%; mask-position: 0% 30%; --hue: -25deg; }
+  50% { -webkit-mask-position: 100% 70%; mask-position: 100% 70%; --hue: 25deg; }
+}
 
 /* ---------- Toolbar ---------- */
 .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
@@ -136,8 +139,25 @@ select { background: var(--panel); border: 1px solid var(--line); border-radius:
 .art img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .5s; -webkit-user-drag: none; pointer-events: none; }
 .art img.in { opacity: 1; }
 .foil, .glare { position: absolute; inset: 0; pointer-events: none; z-index: 2; opacity: 0; transition: opacity .35s; }
-.foil { background: var(--foil); background-size: 400% 400%; background-position: var(--mx, 50%) var(--my, 50%);
-  mix-blend-mode: color-dodge; filter: brightness(.55) contrast(1.6) saturate(1.3); }
+/* Per-card holo: a blurred, oversaturated copy of the card's own art, cut into diagonal
+   foil bands that slide with the pointer. Every card shimmers in its own palette, and the
+   hue drifts a little as you tilt it, like light catching real foil. The art is only
+   painted while a card is lit, so the 200 idle cards cost nothing. */
+.foil {
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+  mix-blend-mode: color-dodge;
+  filter: saturate(3.2) contrast(1.5) brightness(1.05) blur(3px) hue-rotate(var(--hue, 0deg));
+  -webkit-mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 2.6%, transparent 5.2%, transparent 9%);
+          mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 2.6%, transparent 5.2%, transparent 9%);
+  -webkit-mask-size: 260% 260%; mask-size: 260% 260%;
+  -webkit-mask-position: var(--mx, 50%) var(--my, 50%); mask-position: var(--mx, 50%) var(--my, 50%);
+}
+.card.live .foil, .lb .art .foil, .fan .card[style*="--k: 0"] .foil { background-image: var(--art); }
+/* A halo in the card's own colors, glowing behind it when lit. */
+.halo { position: absolute; z-index: 0; left: 6%; top: 4%; width: 88%; aspect-ratio: 63 / 88; border-radius: 12px; pointer-events: none;
+  background-position: center; background-size: cover; filter: blur(30px) saturate(2.2); opacity: 0; transition: opacity .5s; }
+.card .art { z-index: 1; }
+.card.live .halo { background-image: var(--art); opacity: .75; }
 .glare { background: radial-gradient(farthest-corner circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.6), rgba(255,255,255,.1) 30%, rgba(0,0,0,.35) 85%); mix-blend-mode: overlay; }
 .card.live .art { transition-duration: .1s, .4s; --s: 1.04; box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 34px 60px -24px color-mix(in oklab, var(--c1, #000) 80%, black), 0 0 0 1px rgba(255,255,255,.07); z-index: 3; }
 .card.live .foil { opacity: .5; }
@@ -320,7 +340,8 @@ function glow(c) {
 function cardHTML(c, extra = "") {
   const ten = /\b10\b/.test(c.grade);
   return `<button class="card" data-i="${c.idx}" ${extra} aria-label="${esc(c.name)} ${esc(c.number ? "#" + c.number : "")}, ${esc(c.grade)}">
-    <div class="art">
+    <span class="halo" style="--art: url('${img(c, 240)}')"></span>
+    <div class="art" style="--art: url('${img(c, 240)}')">
       <img src="${img(c, 240)}" alt="" loading="lazy" decoding="async" data-full="${img(c, 1600)}">
       <span class="foil"></span><span class="glare"></span>
       ${c.graded ? `<span class="badge${ten ? " ten" : ""}">${esc(c.grade.replace("Grade ", ""))}</span>` : ""}
@@ -495,11 +516,13 @@ function tilt(art, x, y, max) {
   art.style.setProperty("--ry", ((x - 0.5) * max).toFixed(2) + "deg");
   art.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
   art.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+  // Small hue drift around the card's own colors as the light angle changes.
+  art.style.setProperty("--hue", ((x - 0.5) * 60 + (y - 0.5) * 30).toFixed(1) + "deg");
 }
 function untilt(card) {
   card.classList.remove("live");
   const art = card.querySelector(".art");
-  ["--rx", "--ry", "--mx", "--my"].forEach((p) => art.style.removeProperty(p));
+  ["--rx", "--ry", "--mx", "--my", "--hue"].forEach((p) => art.style.removeProperty(p));
 }
 let live = null;
 function onMove(e) {
@@ -595,7 +618,7 @@ function show(enter) {
   const c = list[pos];
   const ten = /\b10\b/.test(c.grade);
   const full = big(c);
-  $("#lbStage").innerHTML = `<div class="art">
+  $("#lbStage").innerHTML = `<div class="art" style="--art: url('${img(c, 240)}')">
       <img class="in" src="${ready(full) ? full.src : img(c, 240)}" alt="${esc(c.name)} card art">
       <span class="foil"></span><span class="glare"></span>
       ${c.graded ? `<span class="badge${ten ? " ten" : ""}">${esc(c.grade.replace("Grade ", ""))}</span>` : ""}
