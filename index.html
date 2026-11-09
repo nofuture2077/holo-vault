@@ -149,8 +149,9 @@ select { background: var(--panel); border: 1px solid var(--line); border-radius:
   background-position: center; background-size: cover; background-repeat: no-repeat;
   mix-blend-mode: color-dodge;
   filter: saturate(3.2) contrast(1.5) brightness(1.05) blur(3px) hue-rotate(var(--hue, 0deg));
-  -webkit-mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 2.6%, transparent 5.2%, transparent 9%);
-          mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 2.6%, transparent 5.2%, transparent 9%);
+  /* Broad bands: soft 4.5% edges around a solid 4% core, then a 5% gap before the next. */
+  -webkit-mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 4.5%, #000 8.5%, transparent 13%, transparent 18%);
+          mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 4.5%, #000 8.5%, transparent 13%, transparent 18%);
   -webkit-mask-size: 260% 260%; mask-size: 260% 260%;
   -webkit-mask-position: var(--mx, 50%) var(--my, 50%); mask-position: var(--mx, 50%) var(--my, 50%);
 }
