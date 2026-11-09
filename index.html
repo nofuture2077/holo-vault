@@ -623,12 +623,11 @@ function preloadAround() {
 
 function show(enter) {
   const c = list[pos];
-  const ten = /\b10\b/.test(c.grade);
   const full = big(c);
+  // No grade badge here: the art stays clean, and the grade is in the info panel.
   $("#lbStage").innerHTML = `<div class="art" style="--art: url('${img(c, 240)}')">
       <img class="in" src="${ready(full) ? full.src : img(c, 240)}" alt="${esc(c.name)} card art">
       <span class="foil"></span><span class="glare"></span>
-      ${c.graded ? `<span class="badge${ten ? " ten" : ""}">${esc(c.grade.replace("Grade ", ""))}</span>` : ""}
     </div>`;
   if (ready(full)) preloadAround();
   else if (full) {
