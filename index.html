@@ -35,6 +35,8 @@
 [hidden] { display: none !important; }
 /* Values stay hidden until the viewer turns them on. */
 html:not(.show-values) .money { display: none !important; }
+/* Without the price column, stack name over set instead of letting the set slide up. */
+html:not(.show-values) .meta { grid-template-columns: minmax(0, 1fr); }
 .toggle { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 14px 7px 11px; cursor: pointer; font-size: 13px; color: var(--mute); white-space: nowrap; }
 .toggle:hover { color: var(--fg); }
 .toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
