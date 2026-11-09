@@ -314,7 +314,18 @@ footer a { color: inherit; }
 const params = new URLSearchParams(location.search);
 const SELLER = params.get("seller") || "2oalzw2t42a2g6chigqdqcknwa";
 const CATEGORY = params.get("category") || "pokemon-cards";
-const CACHE_KEY = `vault:${SELLER}:${CATEGORY}`;
+// Bump the version when parsing changes, so stale cached data isn't shown.
+const CACHE_KEY = `vault:v2:${SELLER}:${CATEGORY}`;
+
+// PriceCharting says "Graded 9" without the company; grade-co-id carries it.
+const GRADERS = { 1: "PSA", 2: "BGS", 8: "CGC" };
+function gradeLabel(o) {
+  const s = (o["include-string"] || "").trim();
+  const m = s.match(/^Graded\s+(.+)$/);
+  if (!m) return s || "Ungraded";             // already "PSA 10", "BGS 10", "Ungraded"…
+  const co = GRADERS[o["grade-co-id"]] || (m[1] === "9.5" ? "BGS" : "");  // only BGS gives 9.5
+  return co ? `${co} ${m[1]}` : `Grade ${m[1]}`;
+}
 const CACHE_MS = 10 * 60 * 1000;
 
 const $ = (s) => document.querySelector(s);
@@ -460,7 +471,7 @@ function parseOffer(o) {
   let set = (o["console-name"] || "").replace(/^Pokemon\s+/, "");
   const japanese = /^Japanese\s/.test(set);
   if (japanese) set = set.slice(9);
-  const grade = (o["include-string"] || "").replace(/^Graded /, "Grade ").trim() || "Ungraded";
+  const grade = gradeLabel(o);
   const key = (o["image-url"] || "").match(/images\.pricecharting\.com\/([^/]+)\//);
   return {
     id: o["offer-id"],
