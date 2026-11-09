@@ -148,7 +148,7 @@ select { background: var(--panel); border: 1px solid var(--line); border-radius:
 .foil {
   background-position: center; background-size: cover; background-repeat: no-repeat;
   mix-blend-mode: color-dodge;
-  filter: saturate(3.2) contrast(1.5) brightness(1.05) blur(3px) hue-rotate(var(--hue, 0deg));
+  filter: saturate(3.6) contrast(1.55) brightness(1.12) blur(3px) hue-rotate(var(--hue, 0deg));
   /* Broad bands: soft 4.5% edges around a solid 4% core, then a 5% gap before the next. */
   -webkit-mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 4.5%, #000 8.5%, transparent 13%, transparent 18%);
           mask-image: repeating-linear-gradient(115deg, transparent 0%, #000 4.5%, #000 8.5%, transparent 13%, transparent 18%);
@@ -178,6 +178,9 @@ html[data-foil="rainbow"] .fan .card[style*="--k: 0"] .foil { animation-name: sw
 .glare { background: radial-gradient(farthest-corner circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.6), rgba(255,255,255,.1) 30%, rgba(0,0,0,.35) 85%); mix-blend-mode: overlay; }
 .card.live .art { transition-duration: .1s, .4s; --s: 1.04; box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 34px 60px -24px color-mix(in oklab, var(--c1, #000) 80%, black), 0 0 0 1px rgba(255,255,255,.07); z-index: 3; }
 .card.live .foil { opacity: .5; }
+/* Card colors (B) runs a touch stronger than the rainbow. */
+html:not([data-foil="rainbow"]) .card.live .foil { opacity: .6; }
+html:not([data-foil="rainbow"]) .lb .art .foil { opacity: .5; }
 .card.live .glare { opacity: 1; }
 
 .badge { position: absolute; z-index: 4; top: 7%; right: 6%; font: 600 10.5px/1 var(--mono); letter-spacing: .06em; padding: 5px 7px 4px; border-radius: 4px;
