@@ -126,6 +126,19 @@ select { background: var(--panel); border: 1px solid var(--line); border-radius:
 .linkbtn { background: none; border: 0; padding: 0; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; }
 .linkbtn:hover { color: var(--fg); }
 
+/* ---------- Collection picker + share ---------- */
+.coll { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 22px 0 0; font: 400 12px var(--mono); color: var(--mute); }
+.coll .tag { color: var(--gold); letter-spacing: .06em; }
+.coll a { color: inherit; text-underline-offset: 3px; }
+.coll a:hover { color: var(--fg); }
+.pick { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; max-width: 560px; }
+.pick input { flex: 1 1 260px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; outline: none; font-size: 14px; }
+.pick input:focus { border-color: color-mix(in oklab, var(--gold) 60%, var(--line)); }
+.pick .btn { color: var(--bg); background: var(--gold); border-color: var(--gold); font-weight: 600; }
+.pick .btn:hover { background: color-mix(in oklab, var(--gold) 85%, white); }
+.pick-hint { width: 100%; margin: 0; font: 400 12px/1.5 var(--mono); color: var(--mute); }
+.pick-hint.err { color: var(--down); }
+
 /* ---------- Grid + card ---------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--card-w), 44vw), 1fr)); gap: 34px 22px; padding-block: 32px 80px; }
 .card { all: unset; display: flex; flex-direction: column; gap: 12px; cursor: pointer; position: relative; min-width: 0; -webkit-tap-highlight-color: transparent; }
@@ -257,6 +270,17 @@ footer a { color: inherit; }
       <div><dd id="sSets">—</dd><dt>Sets</dt></div>
       <div class="money"><dd id="sTop">—</dd><dt>Top card</dt></div>
     </dl>
+    <div class="coll" id="coll" hidden>
+      <span id="collNote"></span>
+      <button class="linkbtn" id="change" type="button">Change collection</button>
+      <button class="linkbtn" id="share" type="button">Share collection</button>
+    </div>
+    <form class="pick" id="pick" hidden>
+      <input id="pickUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+        placeholder="Paste your PriceCharting collection link" aria-label="PriceCharting collection link">
+      <button class="btn" type="submit">Open vault</button>
+      <p class="pick-hint" id="pickHint">e.g. https://www.pricecharting.com/offers?status=collection&amp;seller=…  It is remembered on this device.</p>
+    </form>
   </div>
   <div class="fan" id="fan" aria-label="Five most valuable cards"></div>
 </header>
@@ -310,10 +334,16 @@ footer a { color: inherit; }
 </div>
 
 <script>
-// Collection to show. Override with ?seller=…&category=… in the address bar.
+// Collection to show. A ?seller=…&category=… link (a shared collection) wins for this visit
+// only; otherwise the collection the viewer pasted earlier, kept in localStorage.
+const COLL_KEY = "vault-collection";
 const params = new URLSearchParams(location.search);
-const SELLER = params.get("seller") || "2oalzw2t42a2g6chigqdqcknwa";
-const CATEGORY = params.get("category") || "pokemon-cards";
+const mine = (() => { try { const c = JSON.parse(localStorage.getItem(COLL_KEY)); return c && c.seller ? c : null; } catch { return null; } })();
+const fromUrl = params.get("seller") ? { seller: params.get("seller"), category: params.get("category") || "pokemon-cards" } : null;
+const COLL = fromUrl || mine;
+const SHARED = !!fromUrl && !(mine && mine.seller === fromUrl.seller && mine.category === fromUrl.category);
+const SELLER = COLL ? COLL.seller : "";
+const CATEGORY = COLL ? COLL.category : "";
 // Bump the version when parsing changes, so stale cached data isn't shown.
 const CACHE_KEY = `vault:v3:${SELLER}:${CATEGORY}`;
 
@@ -517,6 +547,13 @@ async function fetchCollection(onPage) {
 }
 
 async function load(refresh = false) {
+  if (!COLL) {
+    $("#totalNote").textContent = "No collection yet";
+    $("#summary").textContent = "";
+    $("#grid").innerHTML = `<div class="state"><h2>Open your vault</h2><p>Paste the link to your PriceCharting collection above to see your cards.</p></div>`;
+    showPicker(true);
+    return;
+  }
   if (!refresh) {
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
@@ -537,6 +574,53 @@ async function load(refresh = false) {
     $("#grid").innerHTML = `<div class="state"><h2>Vault locked</h2><p>${esc(err.message)}</p><button class="btn" id="retry">Try again</button></div>`;
     $("#retry").onclick = () => load(true);
   }
+}
+
+/* ---------- Choosing and sharing a collection ---------- */
+// Accepts a PriceCharting collection link, a shared vault link, or a bare seller ID.
+function parseCollection(text) {
+  const s = text.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : "https://" + s);
+    const seller = u.searchParams.get("seller");
+    if (seller) return { seller, category: u.searchParams.get("category") || "pokemon-cards" };
+  } catch {}
+  if (/^[a-z0-9]{12,}$/i.test(s)) return { seller: s, category: "pokemon-cards" };
+  return null;
+}
+const shareUrl = () => `${location.origin}${location.pathname}?seller=${encodeURIComponent(SELLER)}&category=${encodeURIComponent(CATEGORY)}`;
+
+function showPicker(on) {
+  $("#pick").hidden = !on;
+  if (on) { $("#pickUrl").value = ""; $("#pickUrl").focus(); }
+}
+$("#change").onclick = () => showPicker($("#pick").hidden);
+$("#pick").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const c = parseCollection($("#pickUrl").value);
+  if (!c) {
+    $("#pickHint").textContent = "That doesn't look like a PriceCharting collection link. It should contain ?seller=…";
+    $("#pickHint").classList.add("err");
+    return;
+  }
+  try { localStorage.setItem(COLL_KEY, JSON.stringify(c)); } catch {}
+  // Reload on the bare address: this also leaves a shared view behind.
+  location.assign(location.pathname);
+});
+$("#pickUrl").addEventListener("input", () => $("#pickHint").classList.remove("err"));
+
+$("#share").onclick = async () => {
+  const url = shareUrl(), b = $("#share");
+  if (!fine && navigator.share) { try { await navigator.share({ title: "Holo Vault", url }); } catch {} return; }
+  try { await navigator.clipboard.writeText(url); } catch { prompt("Copy this link to share the collection:", url); return; }
+  b.textContent = "Link copied";
+  setTimeout(() => { b.textContent = "Share collection"; }, 2000);
+};
+
+if (COLL) {
+  $("#coll").hidden = false;
+  if (SHARED) $("#collNote").innerHTML = `<span class="tag">Shared collection</span>${mine ? ` · <a href="${esc(location.pathname)}">Back to mine</a>` : ""}`;
 }
 
 /* ---------- Interaction: tilt, foil, ambient glow ---------- */
