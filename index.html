@@ -493,7 +493,10 @@ function summarize() {
   render();
 }
 
+let busy = false;
+let loading = null; // progress text while a fetch runs on top of cards already shown
 function freshness() {
+  if (loading) { $("#fresh").textContent = loading; return; }
   if (!data) return;
   const mins = Math.round((Date.now() - new Date(data.fetchedAt)) / 60000);
   $("#fresh").innerHTML = `Prices fetched ${mins < 1 ? "just now" : mins + " min ago"} · <button class="linkbtn" id="refresh">Refresh</button>`;
@@ -554,26 +557,42 @@ async function load(refresh = false) {
     showPicker(true);
     return;
   }
+  if (busy) return;
   if (!refresh) {
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-      if (cached && Date.now() - new Date(cached.fetchedAt) < CACHE_MS) { hydrate(cached); return; }
+      if (cached && cached.cards && cached.cards.length) {
+        // Show the last copy right away; fetch fresh prices behind it only if it has gone stale.
+        if (!data) hydrate(cached);
+        if (Date.now() - new Date(cached.fetchedAt) < CACHE_MS) return;
+      }
     } catch {}
   }
-  if (!data) skeleton();
-  const msg = refresh ? "Refreshing prices from PriceCharting" : "Loading collection from PriceCharting";
-  $("#summary").textContent = msg + "…";
+  const shown = !!data;
+  if (!shown) skeleton();
+  const msg = refresh || shown ? "Refreshing prices from PriceCharting" : "Loading collection from PriceCharting";
+  const progress = (text) => { if (shown) { loading = text; freshness(); } else $("#summary").textContent = text; };
+  progress(msg + "…");
+  busy = true;
   try {
-    const json = await fetchCollection((n) => { $("#summary").textContent = `${msg}… ${n} cards so far`; });
+    const json = await fetchCollection((n) => progress(`${msg}… ${n} cards so far`));
     if (!json.cards.length) throw new Error("The collection came back empty. Check that it is public and the seller ID is right.");
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(json)); } catch {}
+    loading = null;
     hydrate(json);
   } catch (err) {
+    loading = null;
+    if (shown) {
+      // Keep the cards already on screen; just say the update failed.
+      freshness();
+      $("#fresh").insertAdjacentText("afterbegin", "Could not refresh prices · ");
+      return;
+    }
     $("#totalNote").textContent = "Could not reach PriceCharting";
     $("#summary").textContent = "";
     $("#grid").innerHTML = `<div class="state"><h2>Vault locked</h2><p>${esc(err.message)}</p><button class="btn" id="retry">Try again</button></div>`;
     $("#retry").onclick = () => load(true);
-  }
+  } finally { busy = false; }
 }
 
 /* ---------- Choosing and sharing a collection ---------- */
