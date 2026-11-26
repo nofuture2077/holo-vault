@@ -473,7 +473,11 @@ function summarize() {
   const count = items.reduce((s, c) => s + c.qty, 0);
   const graded = items.filter((c) => c.graded).reduce((s, c) => s + c.qty, 0);
   const sets = [...new Set(items.map((c) => c.set))].sort();
-  const top = [...items].sort((a, b) => b.price - a.price).slice(0, 5);
+  // Five most valuable distinct cards: other copies or grades of a card already shown are skipped.
+  const seenCard = new Set();
+  const top = [...items].sort((a, b) => b.price - a.price)
+    .filter((c) => { const k = `${c.name}|${c.number}|${c.set}|${c.japanese}`; return !seenCard.has(k) && seenCard.add(k); })
+    .slice(0, 5);
   $("#total").textContent = fmt2(total);
   $("#totalNote").textContent = "Current market value of the collection";
   $("#sCards").textContent = count;
